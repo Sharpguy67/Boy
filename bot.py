@@ -12,19 +12,23 @@ from reportlab.lib.units import inch
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 ADMIN_ID = 6241269407                     # ← CHANGE TO YOUR TELEGRAM USER ID
 
-# ✅ Updated Video File ID (fresh one you provided)
-VIDEO_FILE_ID = "BAACAgQAAxkBAAFH4etp6flCWbYOBZn7QaIgd-Yr4Lk7OgAC6hsAApA3UFPf1V5onit4LzsE"
+# Video file name (must match the file you uploaded)
+VIDEO_FILE_NAME = "tutorial.mp4"
 
 if not BOT_TOKEN:
     print("❌ ERROR: BOT_TOKEN environment variable not set!")
     print("   Add it in GitHub → Settings → Secrets → Codespaces")
     exit(1)
 
+if not os.path.exists(VIDEO_FILE_NAME):
+    print(f"❌ ERROR: Video file '{VIDEO_FILE_NAME}' not found!")
+    print("   Please upload your tutorial video as 'tutorial.mp4'")
+    exit(1)
+
 bot = telebot.TeleBot(BOT_TOKEN)
 
 
 def generate_random_proxies(protocol: str, count: int = 70) -> list:
-    """Generate random proxies"""
     proxies = []
     for _ in range(count):
         ip = '.'.join(str(random.randint(1, 255)) for _ in range(4))
@@ -34,12 +38,10 @@ def generate_random_proxies(protocol: str, count: int = 70) -> list:
 
 
 def generate_pdf(filename: str, proxies: list, title: str):
-    """Generate nicely formatted PDF"""
     c = canvas.Canvas(filename, pagesize=letter)
     width, height = letter
     y = height - 1.5 * inch
 
-    # Header
     c.setFont("Helvetica-Bold", 16)
     c.drawString(50, y, title)
     y -= 40
@@ -66,67 +68,61 @@ def generate_pdf(filename: str, proxies: list, title: str):
 def start(message):
     chat_id = message.chat.id
 
-    # 1. Send tutorial video using the new file_id
+    # 1. Send tutorial video by uploading the file (most reliable)
     try:
-        bot.send_video(
-            chat_id,
-            VIDEO_FILE_ID,
-            caption="📹 **How to use SOCKS5/HTTPS proxies on Android**\n\n"
-                    "Watch this short tutorial first (~2 minutes)",
-            supports_streaming=True,
-            timeout=60
-        )
+        with open(VIDEO_FILE_NAME, 'rb') as video_file:
+            bot.send_video(
+                chat_id,
+                video_file,
+                caption="📹 **How to use SOCKS5/HTTPS proxies on Android**\n\n"
+                        "Watch this short tutorial first (~2 minutes)",
+                supports_streaming=True,
+                timeout=90
+            )
+        print("Video sent successfully by uploading file")
     except Exception as e:
-        print(f"Video send error: {e}")
+        print(f"Video upload error: {e}")
         bot.send_message(
             chat_id,
             "⚠️ Could not send the tutorial video right now.\n"
-            "Please try /start again in a few moments."
+            "Please try /start again in a moment."
         )
 
-    # 2. Generate fresh random proxies
+    # 2. Generate and send proxies (unchanged)
     https_proxies = generate_random_proxies('https', 70)
     socks5_proxies = generate_random_proxies('socks5', 70)
 
-    # 3. Create PDFs
     generate_pdf('https_servers.pdf', https_proxies, "HTTPS Proxies List")
     generate_pdf('socks5_servers.pdf', socks5_proxies, "SOCKS5 Proxies List")
 
-    # 4. Send PDFs
     try:
         with open('https_servers.pdf', 'rb') as f:
-            bot.send_document(
-                chat_id, f,
-                caption=f"🔒 70 Random HTTPS Proxies\nGenerated: {len(https_proxies)}"
-            )
+            bot.send_document(chat_id, f, caption=f"🔒 70 Random HTTPS Proxies\nGenerated: {len(https_proxies)}")
 
         with open('socks5_servers.pdf', 'rb') as f:
-            bot.send_document(
-                chat_id, f,
-                caption=f"🧦 70 Random SOCKS5 Proxies\nGenerated: {len(socks5_proxies)}"
-            )
+            bot.send_document(chat_id, f, caption=f"🧦 70 Random SOCKS5 Proxies\nGenerated: {len(socks5_proxies)}")
     except Exception as e:
         bot.send_message(chat_id, f"❌ Error sending PDF files: {str(e)}")
 
-    # 5. Final instructions
+    # 3. Final message
     bot.send_message(
         chat_id,
         "✅ **All set!**\n\n"
-        "• Use the proxies at your own risk (they are randomly generated)\n"
+        "• Use the proxies at your own risk (randomly generated)\n"
         "• Send feedback anytime:\n"
         "`/feedback Your message here`",
         parse_mode="Markdown"
     )
 
 
+# Feedback and admin reply handlers (unchanged)
 @bot.message_handler(commands=['feedback'])
 def feedback(message):
     chat_id = message.chat.id
     text = message.text.strip()
 
     if len(text.split()) <= 1:
-        bot.reply_to(message, "❗ Please write your message after `/feedback`\n"
-                              "Example: `/feedback The proxies are working great!`")
+        bot.reply_to(message, "❗ Please write your message after `/feedback`\nExample: `/feedback The proxies are working great!`")
         return
 
     try:
@@ -139,19 +135,13 @@ def feedback(message):
 @bot.message_handler(func=lambda m: m.from_user.id == ADMIN_ID and m.reply_to_message is not None)
 def admin_reply(message):
     replied = message.reply_to_message
-
     if not replied.forward_from:
         bot.reply_to(message, "❌ This message is not a forwarded feedback.")
         return
 
     user_id = replied.forward_from.id
-
     try:
-        bot.send_message(
-            user_id,
-            f"📨 **Admin Reply**:\n\n{message.text}",
-            parse_mode="Markdown"
-        )
+        bot.send_message(user_id, f"📨 **Admin Reply**:\n\n{message.text}", parse_mode="Markdown")
         bot.reply_to(message, f"✅ Reply sent to user {user_id}")
     except Exception as e:
         bot.reply_to(message, f"❌ Failed to send reply:\n{str(e)}")
