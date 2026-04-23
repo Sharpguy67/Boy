@@ -17,7 +17,7 @@ from reportlab.lib.pagesizes import letter
 # ────────────────────────────────────────────────
 BOT_TOKEN   = os.getenv('BOT_TOKEN')           # ← from Codespaces secret
 ADMIN_ID    = 6241269407                        # ← CHANGE THIS to your Telegram user ID (number)
-VIDEO_FILE_ID = "BAACAgQAAxkBAAEbN_VplhNmdQrssL9Ig25N89mautw5iQACBxwAAkepsVD1gmmPtuEaKjoE"
+VIDEO_FILE_ID = "BAACAgQAAxkBAAEDZbVp6dXGW59IG9zAHcmOAAH6UvlB-6MAAlcaAAJFSrBQU0NMe7A8DMo7BA"
 
 if not BOT_TOKEN:
     print("ERROR: BOT_TOKEN environment variable not set!")
